@@ -1,0 +1,153 @@
+---
+title: 'ECONOMETRICS I, Assignment I'
+author: "Ruoheng Du"
+date: "02/23/2023"
+output: pdf_document
+fontsize: 10pt
+urlcolor: blue
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo      = TRUE,
+                      eval      = TRUE,
+                      out.width = "90%", 
+                      fig.asp   = 0.5,
+                      fig.align = "center",
+                      comment   = "", 
+                      message   = FALSE,
+                      warning   = FALSE)
+```
+
+
+
+
+### Question 1
+
+
+```{r q1}
+library(tidyquant)
+library(dplyr)
+
+mydata <- tq_get(c("SPY", "COO"), get = "stock.prices", from = "2000-01-01",)
+mydata <- mydata %>% 
+  group_by(symbol) %>%
+    tq_transmute(select = adjusted, mutate_fun = to.monthly, indexAt = "lastof") %>%
+    tq_mutate(adjusted, periodReturn, col_rename = "return")
+
+library(ggplot2)
+
+## HERE CODE TO MAKE THE PLOTS
+##
+head(mydata)
+tail(mydata)
+ggplot(mydata, aes(date, log(adjusted), color = symbol)) + 
+  geom_line()
+ggplot(mydata, aes(date, return, color = symbol)) + 
+  geom_line()
+```
+
+**DISCUSSION**  
+1. For the plot of the date and the logarithm of the price, we can expect that SPY and COO do have some positive correlation, but the extent to which is not that big as we can see that before the financial crisis, the logarithm of the prices of SPY and COO move reversely: while one is declining, the other is increasing. And between 2010 and 2015, they do show the same pattern, but their rates of increase differ a lot. Besides, the logarithm of the prices of SPY and COO have a smaller difference after 2015. 
+2. For the plot of the date and the return, we can find that both COO and SPY have a lot of spread of returns as they constantly fluctuate around 0. But compared with the SPY, COO has larger and more frequent extreme negatives, which indicates that it may have a larger left skewness.
+
+
+### Question 2        
+
+
+```{r q2}
+library(fBasics)
+library(knitr)
+
+mydata %>% 
+  group_by(symbol) %>%
+  summarize(Average = mean(return), StdDev = sd(return), 
+            Skewness = skewness(return), Kurtosis = kurtosis(return)) %>% # INSIDE SUMMARIZE YOU NEED TO ADD 
+  kable(digits = 3)                     # THE STD DEV, SKEWNESS, KURTOSIS
+```
+
+**DISCUSSION** 
+1. For COO, the average return is 0.015 with a standard deviation of 0.086. This means that a range from -0.157 to 0.187 includes around 95% of the sample, if the observations follow a normal distribution. The skewness of -0.784 implies that the return of COO have a longer tail than others with skewness of 0. And the negative sign indicates that the distribution of the return of COO is left-skewed and has more extreme negative. The excess kurtosis of the return of COO is 4.700, which means that the return of COO has a heavy tail and contains more possibilities to extremes. 
+2. For SPY, the average return is 0.006 with a standard deviation of 0.045. Compared with COO, SPY has a lower average return and a lower squared spread of the distribution. The skewness of -0.465, which is lower than that of COO, indicates that SPY has a left tail and it is less left-skewed than COO. The excess kurtosis of the return of SPY is 0.715. This is close to normal distribution, which has 0 excess kurtosis, and it is much less than that of COO, indicating that SPY has less possibility for extremes.
+
+
+### Question 3
+
+
+```{r q3}
+mydata.wide <- 
+  mydata %>%
+  select(date, symbol, return) %>%
+  tidyr::spread(symbol, return)
+
+## ADD HERE PLOTTING
+##
+ggplot(mydata.wide, aes(SPY, COO)) + 
+  geom_point() + 
+  geom_smooth(method="lm", se=FALSE)
+```
+
+**DISCUSSION**
+We can conclude from the scatter plot and the regression line that there is some degree of dependence between the SPY and COO, as the data has a slight upward sloping distribution pattern and the slope of the regression line is indeed positive. Yet, it is uncertain if the two variables are strongly related or whether evidence of a strong effect exists because: 1. there's a number of caveats (for example, the point in the lower left corner) and 2. there are few points on the regression line, but there are many points scattered around.
+
+
+### Question 4
+
+
+```{r q4}
+##
+## PLOT HISTOGRAM ... 
+##
+ggplot(mydata.wide, aes(COO)) + 
+  geom_histogram(aes(y = ..density..), 
+                 bins = 50, fill = "tomato1", color = "tomato4") + 
+  stat_function(fun = dnorm, 
+                args = list(mean = mean(mydata.wide$COO,na.rm=T), 
+                            sd = sd(mydata.wide$COO,na.rm=T)))
+
+ggplot(mydata.wide, aes(SPY)) + 
+  geom_histogram(aes(y = ..density..), 
+                 bins = 50, fill = "tomato1", color = "tomato4") + 
+  stat_function(fun = dnorm, 
+                args = list(mean = mean(mydata.wide$SPY,na.rm=T), 
+                            sd = sd(mydata.wide$SPY,na.rm=T)))
+```
+
+**DISCUSSION**  
+1. For COO, we can see that it has a heavy and long left tail compared with normal distribution. And as we can seen from the histogram, some of the parts lie above the normal distribution line (more frequency), while others lie below the normal distribution line (less frequency). This indicates that for some certain ranges of return, COO has more probability to give these returns than the normal distribution predicts, while for some other ranges of return, this histogram has less probability to give these returns (for instance, between -0.2 and -0.1).
+2. For SPY, we can see that it still has a left tail, but this is not as heavy as COO since the left extreme of SPY is not as extreme as that of COO. There's also some parts in the histogram that have less or more frequency than the normal distribution. For instance, between around -0.05 and -0.02, this histogram has less probability to give these returns than the normal distribution predicts.
+
+
+### Question 5
+
+
+```{r q5}
+mydata.wide %>% select(SPY,COO) %>% cor(use = "complete") %>% kable(digits = 3) 
+
+## ADD CALCULATION OF THE OLS ESTIMATE OF BETA1
+s_xy      = cov(mydata.wide$SPY, mydata.wide$COO)
+s2_x      = var(mydata.wide$SPY)
+beta1_hat = s_xy / s2_x
+beta1_hat
+```
+
+**DISCUSSION**
+The correlation between SPY and COO is 0.339, which indicate a relatively moderate positive linear relationship between SPY and COO. Intuitively, this means that SPY and COO tend to increase at the same time.
+
+
+### Question 6
+
+
+```{r q6}
+##
+## Regression of stock returns on market returns
+##
+fit <- lm(COO ~ SPY, data = mydata.wide)
+summary(fit)
+```
+
+**DISCUSSION**
+From lm(), we can conclude that the intercept (beta_0) is equal to 0.011152 and the SPY coefficient (beta_1) is 0.658818.
+1. For the intercept/beta_0, it means that if the return of SPY equals zero, the predicted/estimated expected return of COO is 0.011152. Since it is practical to have the return of SPY to be zero, the intercept is economically meaningful.
+2. For the slope/beta_1, it means that a one percentage point change in the return of SPY is associated with an estimated expected 0.658818 percentage point change in the return of COO.
+3. For the overall fit of the regression, we can learn from the regression that SER = 0.08145 and r_squared = 0.1151. This means that the return of SPY explains for 11.51% for the observed return of COO and that for a given prediction of the return of COO using the return SPY as a predicting variable will on average yield a result which is 0.08145 from the actual return. Although the absolute value of SER is small, this is a relatively large value compared with the standard deviation of the return of COO and SPY, which will make the regression model less predictive.

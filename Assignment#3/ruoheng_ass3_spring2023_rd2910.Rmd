@@ -1,0 +1,202 @@
+---
+title: "Econometrics Assignment 3"
+author: "Ruoheng Du"
+date: "05/15/2023"
+output:
+  pdf_document: default
+  html_document:
+    df_print: paged
+  word_document: default
+fontsize: 10pt
+urlcolor: blue
+---
+
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE,  warning = FALSE)
+library(ggplot2)
+library(alfred)
+library(dplyr)
+library(aTSA)
+library(stats)
+```
+
+
+Since the beginning of China's reform and opening up, the country's economic development has generally been divided into four stages. The first two stages cover the periods of 1978-1992 and 1992-1997. During these stages, China made a historic transition from a low point in its economy to a market-oriented system, which posed tremendous challenges. The various economic entities within the country were not yet mature, and exploratory actions and pilot programs were necessary to determine the path of development. After 1998, things had changed. For example, China had entered into the World Trade Organization, which symbolized its integration into the wave of globalization, and indicated a significant shift in the country's economic landscape. Therefore, it is not feasible to generalize the first two stages of development with the later period. Therefore, I will use the data from 1998 till now. 
+
+
+### Question 1
+
+The data that I will use is International Trade: Exports: Value (Goods): Total for China (People's Republic Of). It is recorded as the growth rate from same period previous year.
+
+```{r get exp}
+df <- get_fred_series("XTEXVA01CNM659S", observation_start = "1998-01-01")
+
+df <- df %>%
+  rename('exp' = 'XTEXVA01CNM659S')
+head(df,3)
+tail(df,3)
+```
+
+
+### Question 2
+
+```{r time series graph}
+ggplot(df, aes(date, exp))+ 
+  geom_line() + 
+  theme_bw() + 
+  labs(x = 'Date', y = 'Export (Growth Rate)')
+```
+
+As we can see, starting from 1998, there are two periods of time that worth pointing out.
+• Around 2008: the financial crisis hit, causing great fluctuations in supply chain and creating strong negative outliers.
+• Around 2020: during the COVID-19, which is a huge supply shock, the export of international trade had faced strong negative shock at the beginning of the epidemic, while China's export industry greatly recovered after 1 year, resulting in a large positive outlier.
+
+
+### Question 3
+
+```{r acf with covid}
+# Autocorrelation including COVID-19
+x <- acf(df$exp, lag.max = 20, pl = FALSE)
+acf_df <- data.frame(lag = 0:20, explag = x$acf)
+
+ggplot(acf_df,aes(lag, explag)) + 
+  geom_point() + 
+  theme_bw() + 
+  ylim(-1,1) + 
+  geom_line() + 
+  labs(y = 'Correlation')
+```
+
+```{r acf without covid}
+# Autocorrelation excluding COVID-19
+df_no_covid <- df%>%filter(date < '2019-12-31')
+x_no_covid <- acf(df_no_covid$exp, lag.max = 20, pl = FALSE)
+acf_df_no_covid <- data.frame(lag = 0:20, explag = x_no_covid$acf)
+
+ggplot(acf_df_no_covid,aes(lag, explag)) +
+  geom_point() + 
+  theme_bw() + 
+  ylim(-1,1) + 
+  geom_line() + 
+  labs(y = 'Correlation')
+```
+
+The plot of ACF without the pandemic is almost identical to that with the pandemic, so, I will use the full dataset.
+There doesn't seem to have any seasonality and it seems that more recent time periods are better predictors because the correlation is higher. However, which AR is the most suitable is still unknown. 
+
+
+### Question 4
+
+```{r ADF Test exp}
+#library(fUnitRoots)
+#adfTest(df$exp)
+adf.test(df$exp, nlag = 2)
+```
+
+From the ADF test, we can reject the null hypothesis that delta is equal to 0 at 1% significance level. As a result, the data is stationary and we should model the series in level. 
+
+
+### Question 5
+
+```{r AR(1)}
+# AR1
+fit1 = lm(exp ~ lag(exp), data = df)
+
+#summary(fit1)
+#BIC of AR1
+BIC(fit1)
+```
+
+```{r AR(4)}
+# AR4
+fit4 = lm(exp ~ lag(exp) + lag(exp, 2) + lag(exp, 3) + lag(exp, 4), data = df)
+
+summary(fit4)
+# BIC of AR4
+BIC(fit4)
+```
+
+Since the BIC for the AR(4) model is smaller, we should use the AR(4) model. The goodness-of-fit for the AR(4) model is a R-squared value of 0.5142, adjusted R-squared value of 0.5075 and a BIC score of 2386.377.
+
+
+### Question 6
+
+The data that I will use is Interest Rates: 3-Month or 90-Day Rates and Yields: Treasury Securities: Total for China (People's Republic Of), and it starts from 1998 (same for my previous dataset).
+
+```{r get rate}
+dfrate <- get_fred_series("IR3TTS01CNM156N", observation_start = "1998-01-01")
+dfrate <- dfrate %>%
+  rename('rate' = 'IR3TTS01CNM156N')
+```
+
+```{r ADF test rate}
+#library(fUnitRoots)
+#adfTest(dfrate$rate)
+adf.test(dfrate$rate, nlag = 2)
+```
+
+From the ADF test, we can reject the null hypothesis that delta is equal to 0 at 5% significance level. As a result, the data is stationary and we should model the series in level. 
+
+```{r ADL(4,1)}
+mdf = inner_join(df, dfrate, by = 'date')
+
+adl1 <- lm(exp ~ lag(exp) + lag(exp, 2) + lag(exp, 3) + lag(exp, 4) + 
+             lag(rate), mdf)
+
+#summary(adl1)
+BIC(adl1)
+```
+
+```{r ADL(4,4)}
+adl4 <- lm(exp ~ lag(exp) + lag(exp, 2) + lag(exp, 3) + lag(exp, 4) + 
+             lag(rate) + lag(rate, 2) + lag(rate, 3) + lag(rate, 4), mdf)
+
+summary(adl4)
+BIC(adl4)
+```
+
+In this case, q = 4 is better since the BIC value of 2374.248 is smaller than that of 2382.053. 
+This is better than the AR(4) model in the sense that this BIC value of 2374.248 is smaller than that of 2386.377, and this model has higher R-squared value and adjusted R-squared value. But we need to notice that the t-statistics of the last five coefficients are not statistically significant. 
+
+### Question 7
+
+```{r Forecast from ADL(4,4)}
+forecast1 = as.numeric(coef(adl4)[1] + coef(adl4)[2] * tail(mdf$exp, n = 1) + coef(adl4)[3] * mdf[nrow(mdf)-1,]$exp + coef(adl4)[4] * mdf[nrow(mdf)-2,]$exp + coef(adl4)[5] * mdf[nrow(mdf)-3,]$exp + coef(adl4)[6] * tail(mdf$rate, n = 1) + coef(adl4)[7] * mdf[nrow(mdf)-1,]$rate + coef(adl4)[8] * mdf[nrow(mdf)-2,]$rate + coef(adl4)[9] * mdf[nrow(mdf)-3,]$rate)
+
+forecast1
+```
+
+```{r Forecast from AR(4)}
+forecast2 = as.numeric(coef(fit4)[1] + coef(fit4)[2] * tail(mdf$exp, n = 1) + coef(fit4)[3] * mdf[nrow(mdf)-1,]$exp + coef(fit4)[4] * mdf[nrow(mdf)-2,]$exp + coef(fit4)[5] * mdf[nrow(mdf)-3,]$exp)
+
+forecast2
+```
+
+
+### Question 8
+
+```{r forecast interval ADL(4,4)}
+predicted_value1 <- as.numeric(coef(adl4)[1] + coef(adl4)[2] * tail(mdf$exp, n = 1) + coef(adl4)[3] * mdf[nrow(mdf)-1,]$exp + coef(adl4)[4] * mdf[nrow(mdf)-2,]$exp + coef(adl4)[5] * mdf[nrow(mdf)-3,]$exp + coef(adl4)[6] * tail(mdf$rate, n = 1) + coef(adl4)[7] * mdf[nrow(mdf)-1,]$rate + coef(adl4)[8] * mdf[nrow(mdf)-2,]$rate + coef(adl4)[9] * mdf[nrow(mdf)-3,]$rate)
+
+RMSFE1 <- summary(adl4)$sigma
+
+lower_range1 <- forecast1 - 1.645*RMSFE1
+upper_range1 <- forecast1 + 1.645*RMSFE1
+
+bound_90_1 <- c(lower_range1, upper_range1)
+cat('The 90% forecast interval for ADL(4,4) model forecast next period is:', bound_90_1)
+```
+
+```{r forecast interval AR(4)}
+predicted_value2 <- as.numeric(coef(fit4)[1] + coef(fit4)[2] * tail(mdf$exp, n = 1) + coef(fit4)[3] * mdf[nrow(mdf)-1,]$exp + coef(fit4)[4] * mdf[nrow(mdf)-2,]$exp + coef(fit4)[5] * mdf[nrow(mdf)-3,]$exp)
+
+RMSFE2 <- summary(fit4)$sigma
+
+lower_range2 <- forecast2 - 1.645 * RMSFE2
+upper_range2 <- forecast2 + 1.645 * RMSFE2
+
+bound_90_2 <- c(lower_range2 ,upper_range2)
+
+cat('The 90% forecast interval for AR(4) model forecast next period is:', bound_90_2)
+```

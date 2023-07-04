@@ -1,0 +1,92 @@
+---
+title: "Final Project"
+author: "Ruoheng Du and Victoria Fu"
+date: "05/15/2023"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+  pdf_document: default
+fontsize: 10pt
+urlcolor: blue
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE)
+library(ggplot2)
+library(plm)
+library(dplyr)
+library(stargazer)
+```
+
+
+```{r}
+df <- read.csv(file = 'data.csv')
+```
+
+```{r results='asis'}
+##
+## Regression of FFFFM
+##
+fit1 <- lm(ARKK.RF ~ Mkt.RF, data = df)
+fit2 <- lm(ARKK.RF ~ SMB, data = df)
+fit3 <- lm(ARKK.RF ~ Mkt.RF + SMB, data = df)
+fit4 <- lm(ARKK.RF ~ Mkt.RF + HML, data = df)
+fit5 <- lm(ARKK.RF ~ Mkt.RF + SMB + HML, data = df)
+fit6 <- lm(ARKK.RF ~ Mkt.RF + SMB + MOM, data = df)
+fit7 <- lm(ARKK.RF ~ Mkt.RF + SMB + HML + MOM, data = df)
+
+fit1$AIC <- AIC(fit1)
+fit2$AIC <- AIC(fit2)
+fit3$AIC <- AIC(fit3)
+fit4$AIC <- AIC(fit4)
+fit5$AIC <- AIC(fit5)
+fit6$AIC <- AIC(fit6)
+fit7$AIC <- AIC(fit7)
+
+fit1$BIC <- BIC(fit1)
+fit2$BIC <- BIC(fit2)
+fit3$BIC <- BIC(fit3)
+fit4$BIC <- BIC(fit4)
+fit5$BIC <- BIC(fit5)
+fit6$BIC <- BIC(fit6)
+fit7$BIC <- BIC(fit7)
+
+stargazer(fit1, fit2, fit3, fit4, fit5, fit6, fit7, type = 'html', align = TRUE, 
+          keep.stat=c("n", "rsq", "adj.rsq", "ser", "f", "aic", "bic"), 
+          out = "final_project_FFC4.doc")
+```
+
+```{r results='asis'}
+##
+## Regression of Black Litterman
+##
+fit1 <- lm(ARKK.RF ~ Mkt.RF, data = df)
+fit2 <- lm(ARKK.RF ~ SMB, data = df)
+fit3 <- lm(ARKK.RF ~ Mkt.RF + Lagged.ARKK.RF, data = df)
+fit4 <- lm(ARKK.RF ~ Mkt.RF + SMB, data = df)
+fit5 <- lm(ARKK.RF ~ Mkt.RF + SMB + Lagged.ARKK.RF, data = df)
+fit6 <- lm(ARKK.RF ~ Mkt.RF + HML + Lagged.ARKK.RF, data = df)
+fit7 <- lm(ARKK.RF ~ Mkt.RF + SMB + HML + Lagged.ARKK.RF, data = df)
+
+fit1$AIC <- AIC(fit1)
+fit2$AIC <- AIC(fit2)
+fit3$AIC <- AIC(fit3)
+fit4$AIC <- AIC(fit4)
+fit5$AIC <- AIC(fit5)
+fit6$AIC <- AIC(fit6)
+fit7$AIC <- AIC(fit7)
+
+fit1$BIC <- BIC(fit1)
+fit2$BIC <- BIC(fit2)
+fit3$BIC <- BIC(fit3)
+fit4$BIC <- BIC(fit4)
+fit5$BIC <- BIC(fit5)
+fit6$BIC <- BIC(fit6)
+fit7$BIC <- BIC(fit7)
+
+stargazer(fit1, fit2, fit3, fit4, fit5, fit6, fit7, type = 'html', align = TRUE,
+          keep.stat=c("n", "rsq", "adj.rsq", "ser", "f", "aic", "bic"), 
+          out = "final_project_BLM.doc")
+```
+
